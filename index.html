@@ -1,0 +1,181 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Room</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    body { font-family: Arial, sans-serif; }
+    #chat { height: 300px; overflow-y: scroll; border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; }
+    #message { width: 80%; height: 100px; }
+    #send { width: 15%; }
+    #file-upload { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>232专用Chat Room</h1>
+  <div id="chat"></div>
+  <div>发送消息：</div>
+  <input type="text" id="username" placeholder="Enter your name" />
+  <textarea id="message" placeholder="Type a message"></textarea>
+  <button id="send">Send Message</button><br>
+  <div>上传文件：请先填写上面的name再传文件。可以直接把文件拖到下面。</div>
+  <input type="file" id="file-upload" />
+  <button id="upload">Upload File</button>
+
+
+
+<div id="progress-container" style="display:none; margin-top: 10px;">
+  <progress id="progress-bar" value="0" max="100"></progress>
+  <span id="progress-percentage">0%</span>
+</div>
+
+  
+
+
+  <div>提醒：</div>
+  <div>现在有些bug，进度条可能会卡；带宽和存储空间有限，尽量别传大文件（一般的代码、图片啥的没问题）；</div>
+  <div>1. 网站使用的ddns是Dynv6，是国外网站，被墙了请联系我；</div>
+  <div>2. 由于ip暴露在公网环境下，且暂时没有采取保护措施，因此任何人都可以登入此网站、都可以看到所有消息。不要上传敏感信息；</div>
+  <div>3. 服务器带宽有限，偶有卡顿为正常现象。</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const chatDiv = document.getElementById('chat');
+    const usernameInput = document.getElementById('username');
+    const messageInput = document.getElementById('message');
+    const sendButton = document.getElementById('send');
+    const fileUploadInput = document.getElementById('file-upload');
+    const uploadButton = document.getElementById('upload');
+
+    // 加载历史聊天记录
+    socket.on('load history', (messages) => {
+      messages.forEach(msg => {
+        const msgElement = document.createElement('div');
+        msgElement.textContent = `${msg.username}: ${msg.message}`;
+        chatDiv.appendChild(msgElement);
+      });
+      // 滚动到消息框底部
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    });
+
+    // 加载历史文件记录
+    socket.on('load files', (files) => {
+      files.forEach(file => {
+        const fileElement = document.createElement('div');
+        const link = document.createElement('a');
+        link.href = `/uploads/${file.filename}`;
+        link.textContent = file.filename;
+        link.target = '_blank';
+        fileElement.appendChild(link);
+        chatDiv.appendChild(fileElement);
+      });
+    });
+
+    // 接收新消息
+    socket.on('chat message', (msg) => {
+      const msgElement = document.createElement('div');
+
+      // 将换行符替换为 <br> 标签，这样就可以发送带换行的文本
+      msgElement.innerHTML = `${msg.username}: ${msg.message.replace(/\n/g, '<br> ')}`;
+
+      chatDiv.appendChild(msgElement);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    });
+
+    // 接收文件上传消息
+    socket.on('file uploaded', (file) => {
+      const fileElement = document.createElement('div');
+      const link = document.createElement('a');
+      link.href = `/uploads/${file.filename}`;
+      link.textContent = file.filename;
+      link.target = '_blank';
+      fileElement.appendChild(link);
+      chatDiv.appendChild(fileElement);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    });
+
+    // 发送消息
+    sendButton.addEventListener('click', () => {
+      const username = usernameInput.value;
+      const message = messageInput.value;
+      if (username && message) {
+        socket.emit('chat message', { username, message });
+        messageInput.value = '';
+      }
+    });
+
+
+    // 按下回车键也可以发送消息
+    // 暂时不需要该功能。因为键入大段文字时，需要加入回车，一不小心会发送出去
+    // messageInput.addEventListener('keypress', (event) => {
+    //   if (event.key === 'Enter') {
+    //     sendButton.click();
+    //   }
+    // });
+
+    // 上传文件
+  //  uploadButton.addEventListener('click', () => {
+   //   const file = fileUploadInput.files[0];
+  //    const username = usernameInput.value;
+  //    if (file && username) {
+  //      const formData = new FormData();
+  //      formData.append('file', file);
+   //     formData.append('username', username); // 添加用户名到表单数据
+
+   //     fetch('/upload', {
+   //       method: 'POST',
+   //       body: formData
+   //     }).then(response => response.json())
+   //       .then(data => {
+   //         console.log(data.message);
+    //      });
+ //     }
+ //   });
+
+
+
+
+
+uploadButton.addEventListener('click', () => {
+  const file = fileUploadInput.files[0];
+  const username = usernameInput.value;
+  if (file && username) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('username', username); // 添加用户名到表单数据
+
+    // 显示进度条
+    document.getElementById('progress-container').style.display = 'block';
+
+    fetch('/upload', {
+      method: 'POST',
+      body: formData,
+      // 设置上传进度监听
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.lengthComputable) {
+          const percentComplete = (progressEvent.loaded / progressEvent.total) * 100;
+          document.getElementById('progress-bar').value = percentComplete;
+          document.getElementById('progress-percentage').textContent = Math.round(percentComplete) + '%';
+        }
+      }
+    }).then(response => response.json())
+      .then(data => {
+        console.log(data.message);
+        // 隐藏进度条
+        document.getElementById('progress-container').style.display = 'none';
+      }).catch(error => {
+        console.error('Error uploading file:', error);
+        alert('Error uploading file.');
+        // 隐藏进度条
+        document.getElementById('progress-container').style.display = 'none';
+      });
+  }
+});
+
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; }
+    #files { height: 300px; overflow-y: scroll; border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; }
+    .message, .file { margin-bottom: 10px; }
+    .delete-button { margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Admin Panel</h1>
+  <h2>Messages</h2>
+  <div id="messages"></div>
+  <button id="delete-all-messages">Delete All Messages</button>
+  <h2>Files</h2>
+  <div id="files"></div>
+  <button id="delete-all-files">Delete All Files</button>
+
+  <script>
+    const messagesDiv = document.getElementById('messages');
+    const filesDiv = document.getElementById('files');
+    const deleteAllMessagesButton = document.getElementById('delete-all-messages');
+    const deleteAllFilesButton = document.getElementById('delete-all-files');
+  
+    // 加载所有消息
+    function loadMessages() {
+      fetch('/admin/messages')
+        .then(response => response.json())
+        .then(messages => {
+          messagesDiv.innerHTML = '';
+          messages.forEach(message => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.textContent = `${message.username}: ${message.message}`;
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.className = 'delete-button';
+            deleteButton.onclick = () => {
+              fetch(`/admin/messages/${message.id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                  console.log(data.message);
+                  messageDiv.remove();
+                });
+            };
+            messageDiv.appendChild(deleteButton);
+            messagesDiv.appendChild(messageDiv);
+          });
+        });
+    }
+  
+    // 加载所有文件
+    function loadFiles() {
+      fetch('/admin/files')
+        .then(response => response.json())
+        .then(files => {
+          filesDiv.innerHTML = '';
+          files.forEach(file => {
+            const fileDiv = document.createElement('div');
+            fileDiv.className = 'file';
+            const link = document.createElement('a');
+            link.href = `/uploads/${file.filename}`;
+            link.textContent = file.filename;
+            link.target = '_blank';
+            fileDiv.appendChild(link);
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.className = 'delete-button';
+            deleteButton.onclick = () => {
+              fetch(`/admin/files/${file.id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                  console.log(data.message);
+                  fileDiv.remove();
+                });
+            };
+            fileDiv.appendChild(deleteButton);
+            filesDiv.appendChild(fileDiv);
+          });
+        });
+    }
+  
+    // 一键删除所有消息
+    deleteAllMessagesButton.addEventListener('click', () => {
+      fetch('/admin/messages/all', { method: 'DELETE' })
+        .then(response => response.json())
+        .then(data => {
+          console.log(data.message);
+          messagesDiv.innerHTML = '';
+        });
+    });
+  
+    // 一键删除所有文件
+    deleteAllFilesButton.addEventListener('click', () => {
+      fetch('/admin/files/all', { method: 'DELETE' })
+        .then(response => response.json())
+        .then(data => {
+          console.log(data.message);
+          filesDiv.innerHTML = '';
+        });
+    });
+  
+    // 初始化加载消息和文件
+    loadMessages();
+    loadFiles();
+  </script>
+</body>
+</html>
